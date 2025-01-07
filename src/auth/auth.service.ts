@@ -37,7 +37,6 @@ export class AuthService {
   async createUser(userData: any): Promise<any> {
     const adminToken = await this.getAdminToken();
     const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users`;
-    console.log('url', url);
   
     try {
       const response = await axios.post(url, userData, {
@@ -90,6 +89,27 @@ export class AuthService {
       return response.data.access_token;
     } catch (error) {
       throw error;
+    }
+  }
+
+  async createUserWithToken(userData: any, token: string): Promise<any> {
+    const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users`;
+
+    try {
+      const response = await axios.post(url, userData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return { message: 'Usuario creado con éxito' };
+    } catch (error) {
+      if (error.response && error.response.status === 409) {
+        return { message: 'Usuario ya existe' };
+      } else {
+        console.error('Error al crear usuario:', error.message);
+        throw error;
+      }
     }
   }
 
