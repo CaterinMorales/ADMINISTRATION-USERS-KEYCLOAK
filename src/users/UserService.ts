@@ -21,6 +21,28 @@ export class UsersService {
     this.realm = this.configService.get<string>('KEYCLOAK_REALM');
   }
 
+  async createUser(userData: any): Promise<any> {
+    const adminToken = await this.authService.getAdminToken();
+    const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users`;
+  
+    try {
+      const response = await axios.post(url, userData, {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return { message: 'Usuario creado con éxito' };
+    } catch (error) {
+      if (error.response && error.response.status === 409) {
+        return { message: 'Usuario ya existe' };
+      } else {
+        console.error('Error al crear usuario:', error.message);
+        throw error;
+      }
+    }
+  }
+
   async bulkInsertUsers(): Promise<void> {
     const users = await this.usersRepository.find();
     let adminToken = await this.authService.getAdminToken();
@@ -54,21 +76,21 @@ export class UsersService {
         console.log(userData);
 
         // Verificar si el usuario existe
-        const existingUser = await this.authService.findUserByUsername(user.usuario, adminToken);
+        const existingUser = await this.findUserByUsername(user.usuario, adminToken);
 
         if (existingUser) {
           console.log(`Usuario ${user.usuario} ya existe, actualizando...`);
           await this.updateUser(existingUser.id, userData, adminToken);
         } else {
           // Crear nuevo usuario si no existe
-          await this.authService.createUserWithToken(userData, adminToken);
+          await this.createUserWithToken(userData, adminToken);
         }
       } catch (error) {
         if (error.response && error.response.status === 401) {
           console.warn('Token expirado. Generando un nuevo token...');
           adminToken = await this.authService.getAdminToken();
           try {
-            await this.authService.createUserWithToken(userData, adminToken);
+            await this.createUserWithToken(userData, adminToken);
           } catch (retryError) {
             console.error(
               `Error al crear usuario ${user.usuario} tras regenerar el token:`,
@@ -98,20 +120,7 @@ export class UsersService {
     }
   }
 
-  async findUserByUsername(username: string, token: string): Promise<any> {
-    try {
-      const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users?username=${username}`;
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      return response.data.length > 0 ? response.data[0] : null;
-    } catch (error) {
-      console.error(`Error al buscar usuario ${username}:`, error.message);
-      throw error;
-    }
-  }
+  
 
   async updatePasswordByUsername(username: string, newPassword: string): Promise<any> {
     try {
@@ -146,8 +155,49 @@ export class UsersService {
       throw new Error('No se pudo actualizar la contraseña');
     }
   }
+
+  async createUserWithToken(userData: any, token: string): Promise<any> {
+    const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users`;
+
+    try {
+        userData.attributes = {
+            ...(userData.attributes || {}),
+            type_document: userData.type_document,
+            nro_document: userData.nro_document,
+        };
+
+        const response = await axios.post(url, userData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        return { message: 'Usuario creado con éxito' };
+    } catch (error) {
+        if (error.response && error.response.status === 409) {
+            return { message: 'Usuario ya existe' };
+        } else {
+            console.error('Error al crear usuario:', error.message);
+            throw error;
+        }
+    }
+  }
+
+  async findUserByUsername(username: string, token: string): Promise<any> {
+    try {
+      const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users?username=${username}`;
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return response.data.length > 0 ? response.data[0] : null;
+    } catch (error) {
+      console.error(`Error al buscar usuario ${username}:`, error.message);
+      throw error;
+    }
+  }
   
-
-
 }
 

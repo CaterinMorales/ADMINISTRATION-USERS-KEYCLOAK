@@ -20,4 +20,9 @@ export class UsersController {
     return await this.usersService.updatePasswordByUsername(username, updatePasswordDto.password);
   }
 
+  @Post('create-user')
+  async createUser(@Body() userData: any) {    
+    return this.usersService.createUser(userData);
+  }
+
 }

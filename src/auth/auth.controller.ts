@@ -5,11 +5,6 @@ import { AuthService } from './auth.service';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('create-user')
-  async createUser(@Body() userData: any) {    
-    return this.authService.createUser(userData);
-  }
-
   @Post('login')
   async login(@Body() loginData: { username: string, password: string }) {
     try {

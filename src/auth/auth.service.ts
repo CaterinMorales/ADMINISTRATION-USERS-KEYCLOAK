@@ -33,28 +33,6 @@ export class AuthService {
   }
 
 
-  async createUser(userData: any): Promise<any> {
-    const adminToken = await this.getAdminToken();
-    const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users`;
-  
-    try {
-      const response = await axios.post(url, userData, {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      return { message: 'Usuario creado con éxito' };
-    } catch (error) {
-      if (error.response && error.response.status === 409) {
-        return { message: 'Usuario ya existe' };
-      } else {
-        console.error('Error al crear usuario:', error.message);
-        throw error;
-      }
-    }
-  }
-
   async getAdminToken(): Promise<string> {
     const url = `${this.keycloakUrl}/realms/master/protocol/openid-connect/token`;
 
@@ -90,50 +68,5 @@ export class AuthService {
       throw error;
     }
   }
-
-  async createUserWithToken(userData: any, token: string): Promise<any> {
-    const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users`;
-
-    try {
-        userData.attributes = {
-            ...(userData.attributes || {}),
-            type_document: userData.type_document,
-            nro_document: userData.nro_document,
-        };
-
-        const response = await axios.post(url, userData, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
-
-        return { message: 'Usuario creado con éxito' };
-    } catch (error) {
-        if (error.response && error.response.status === 409) {
-            return { message: 'Usuario ya existe' };
-        } else {
-            console.error('Error al crear usuario:', error.message);
-            throw error;
-        }
-    }
-  }
-
-  async findUserByUsername(username: string, token: string): Promise<any> {
-    try {
-      const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users?username=${username}`;
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      return response.data.length > 0 ? response.data[0] : null;
-    } catch (error) {
-      console.error(`Error al buscar usuario ${username}:`, error.message);
-      throw error;
-    }
-  }
-  
-
 
 }
