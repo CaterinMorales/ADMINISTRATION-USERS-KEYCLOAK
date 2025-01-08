@@ -6,7 +6,7 @@ import { UpdatePasswordDto } from './dto/UpdatePasswordDto';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post('bulk-insert')
+  @Post('bulk')
   async bulkInsertUsers() {
     await this.usersService.bulkInsertUsers();
     return { message: 'Inserción masiva iniciada' };
@@ -20,7 +20,7 @@ export class UsersController {
     return await this.usersService.updatePasswordByUsername(username, updatePasswordDto.password);
   }
 
-  @Post('create-user')
+  @Post()
   async createUser(@Body() userData: any) {    
     return this.usersService.createUser(userData);
   }
