@@ -20,4 +20,10 @@ export class User {
 
   @Column()
   password: string;
+
+  @Column()
+  typeDocument: string;
+
+  @Column('bigint')
+  nroDocument: number;
 }

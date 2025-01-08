@@ -1,6 +1,6 @@
-// filepath: src/users/users.controller.ts
-import { Controller, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post, Put } from '@nestjs/common';
 import { UsersService } from './UserService';
+import { UpdatePasswordDto } from './dto/UpdatePasswordDto';
 
 @Controller('users')
 export class UsersController {
@@ -11,4 +11,13 @@ export class UsersController {
     await this.usersService.bulkInsertUsers();
     return { message: 'Inserción masiva iniciada' };
   }
+
+  @Put(':username/password')
+  async updatePassword(
+    @Param('username') username: string,
+    @Body() updatePasswordDto: UpdatePasswordDto,
+  ) {
+    return await this.usersService.updatePasswordByUsername(username, updatePasswordDto.password);
+  }
+
 }
