@@ -1,66 +1,62 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
-
-# NestJS Project
-
 ## Description
 
-Este proyecto es una aplicación NestJS que permite la gestión de usuarios y su integración con Keycloak.
+This project is a NestJS application that allows user management and its integration with Keycloak.
 
 ## Project setup
 
 ```bash
 $ npm install
 ```
-## Compile and run the project
 
+## Compile and run the project
+```bash
 # development
 $ npm run start
 
 # watch mode (hot reload)
 $ npm run start:dev
+```
 
 ## Available Endpoints
 ### Auth Endpoints
-POST /auth/login
+* POST /auth/login
 
-Descripción: Inicia sesión con las credenciales proporcionadas.
-Body:
-   ```json
-   {
-      "username": "string",
-      "password": "string"
-    }
-   ```
+  Sign in with the provided credentials.
+  Body:
+     ```json
+     {
+        "username": "string",
+        "password": "string"
+     }
+     ```
 
 ## Users Endpointsç
 
-POST /users/bulk-insert
+* POST /users/bulk-insert
 
-Descripción: Inserta masivamente usuarios desde la base de datos a Keycloak.
-Body: No requiere cuerpo.
+  Massively insert users from the database to Keycloak. Does not require a body.
 
-POST /users
+* POST /users
 
-Descripción: Crea un nuevo usuario en Keycloak.
-Body:
-```json
-   {
-  "username": "string",
-  "email": "string",
-  "firstName": "string",
-  "lastName": "string",
-  "password": "string"
-}
-   ```
+  Create a new user in Keycloak.
+  Body:
+    ```json
+    {
+      "username": "string",
+      "email": "string",
+      "firstName": "string",
+      "lastName": "string",
+      "password": "string"
+    }
+    ```
 
-PUT /users/:username/password
 
-Descripción: Actualiza la contraseña de un usuario existente.
-Body:
-```json
-{
-  "password": "string"
-}
-```
+* PUT /users/:username/password
+
+  Updates the password of an existing user.
+  Body:
+    ```json
+    {
+      "password": "string"
+    }
+    ```
