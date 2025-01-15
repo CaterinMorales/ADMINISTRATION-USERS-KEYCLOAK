@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { User } from './users/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigRealmModule } from './configRealm/config-realm.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     }),
     AuthModule,
     UsersModule,
+    ConfigRealmModule,
   ],
   controllers: [],
   providers: [],

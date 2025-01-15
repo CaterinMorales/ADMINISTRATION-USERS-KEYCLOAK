@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
@@ -24,20 +24,20 @@ export class UsersService {
   async createUser(userData: any): Promise<any> {
     const adminToken = await this.authService.getAdminToken();
     const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users`;
-  
+
     try {
-      const response = await axios.post(url, userData, {
+      await axios.post(url, userData, {
         headers: {
           Authorization: `Bearer ${adminToken}`,
           'Content-Type': 'application/json',
         },
       });
-      return { message: 'Usuario creado con éxito' };
+      return { message: 'User created successfully' };
     } catch (error) {
       if (error.response && error.response.status === 409) {
-        return { message: 'Usuario ya existe' };
+        return { message: 'User already exists' };
       } else {
-        console.error('Error al crear usuario:', error.message);
+        console.error('Error creating user:', error.message);
         throw error;
       }
     }
@@ -50,7 +50,7 @@ export class UsersService {
 
     for (let i = 0; i < users.length; i++) {
       const user = users[i];
-      console.log(`Procesando usuario ${i + 1}/${users.length}: ${user.usuario}`);
+      console.log(`Processing user ${i + 1}/${users.length}: ${user.usuario}`);
 
       const userData = {
         username: user.usuario,
@@ -75,30 +75,48 @@ export class UsersService {
       try {
         console.log(userData);
 
-        // Verificar si el usuario existe
+        
         const existingUser = await this.findUserByUsername(user.usuario, adminToken);
 
         if (existingUser) {
-          console.log(`Usuario ${user.usuario} ya existe, actualizando...`);
+          console.log(`User ${user.usuario} already exists, updating...`);
           await this.updateUser(existingUser.id, userData, adminToken);
         } else {
-          // Crear nuevo usuario si no existe
+          
           await this.createUserWithToken(userData, adminToken);
         }
       } catch (error) {
-        if (error.response && error.response.status === 401) {
-          console.warn('Token expirado. Generando un nuevo token...');
-          adminToken = await this.authService.getAdminToken();
-          try {
-            await this.createUserWithToken(userData, adminToken);
-          } catch (retryError) {
-            console.error(
-              `Error al crear usuario ${user.usuario} tras regenerar el token:`,
-              retryError.message
-            );
+        if (error.response) {
+          if (error.response.status === 401) {
+            console.warn('Token expired. Generating a new token...');
+            adminToken = await this.authService.getAdminToken();
+            try {
+              await this.createUserWithToken(userData, adminToken);
+            } catch (retryError) {
+              if (retryError.response && retryError.response.status === 401) {
+                console.error('Invalid token after retry:', retryError.response.data);
+                throw new UnauthorizedException('Invalid token after retry.');
+              } else if (retryError.response && retryError.response.status === 404) {
+                console.error('User not found after retry:', retryError.response.data);
+                throw new NotFoundException('User not found in Keycloak after retry.');
+              } else {
+                console.error(`Error creating user ${user.usuario} after regenerating token:`, retryError.message);
+                throw new Error(`Failed to create user ${user.usuario} after regenerating token.`);
+              }
+            }
+          } else if (error.response.status === 404) {
+            console.error('User not found:', error.response.data);
+            throw new NotFoundException('User not found in Keycloak.');
+          } else if (error.response.status === 401) {
+            console.error('Invalid token:', error.response.data);
+            throw new UnauthorizedException('Invalid token.');
+          } else {
+            console.error(`Error creating/updating user ${user.usuario}:`, error.response?.data || error.message);
+            throw new Error(`Failed to create/update user ${user.usuario}.`);
           }
         } else {
-          console.error(`Error al crear/actualizar usuario ${user.usuario}:`, error.message);
+          console.error(`Error creating/updating user ${user.usuario}:`, error.message);
+          throw new Error(`Failed to create/update user ${user.usuario}.`);
         }
       }
     }
@@ -113,46 +131,63 @@ export class UsersService {
           'Content-Type': 'application/json',
         },
       });
-      console.log(`Usuario ${userData.username} actualizado con éxito`);
+      console.log(`User ${userData.username} updated successfully`);
     } catch (error) {
-      console.error(`Error al actualizar usuario ${userData.username}:`, error.message);
-      throw error;
+      if (error.response) {
+        if (error.response.status === 404) {
+          console.error('User not found:', error.response.data);
+          throw new NotFoundException('User not found in Keycloak.');
+        } else if (error.response.status === 401) {
+          console.error('Invalid token:', error.response.data);
+          throw new UnauthorizedException('Invalid token.');
+        }
+      }
+      console.error(`Error updating user ${userData.username}:`, error.response?.data || error.message);
+      throw new Error('Failed to update user');
     }
   }
 
-  
 
   async updatePasswordByUsername(username: string, newPassword: string): Promise<any> {
     try {
       const adminToken = await this.authService.getAdminToken();
-  
+
       const user = await this.findUserByUsername(username, adminToken);
-  
+
       if (!user) {
-        throw new Error(`Usuario con username "${username}" no encontrado`);
+        throw new Error(`User with username "${username}" not found`);
       }
-  
+
       const userId = user.id;
-  
+
       const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/reset-password`;
-  
+
       const data = {
         type: 'password',
         value: newPassword,
         temporary: false,
       };
-  
+
       const response = await axios.put(url, data, {
         headers: {
           Authorization: `Bearer ${adminToken}`,
           'Content-Type': 'application/json',
         },
       });
-  
-      return { message: 'Contraseña actualizada con éxito', response: response.data };
+
+      return { message: 'Password updated successfully', response: response.data };
     } catch (error) {
-      console.error('Error al actualizar la contraseña:', error.response?.data || error.message);
-      throw new Error('No se pudo actualizar la contraseña');
+      if (error.response) {
+        if (error.response.status === 404) {
+          console.error('User not found:', error.response.data);
+          throw new NotFoundException('User not found in Keycloak.');
+        } else if (error.response.status === 401) {
+          console.error('Invalid token:', error.response.data);
+          throw new UnauthorizedException('Invalid token.');
+        }
+      }
+      console.error('Error updating password:', error.response?.data || error.message);
+      throw new Error('Failed to update password');
     }
   }
 
@@ -160,27 +195,27 @@ export class UsersService {
     const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users`;
 
     try {
-        userData.attributes = {
-            ...(userData.attributes || {}),
-            type_document: userData.type_document,
-            nro_document: userData.nro_document,
-        };
+      userData.attributes = {
+        ...(userData.attributes || {}),
+        type_document: userData.type_document,
+        nro_document: userData.nro_document,
+      };
 
-        const response = await axios.post(url, userData, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
+      await axios.post(url, userData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-        return { message: 'Usuario creado con éxito' };
+      return { message: 'User created successfully' };
     } catch (error) {
-        if (error.response && error.response.status === 409) {
-            return { message: 'Usuario ya existe' };
-        } else {
-            console.error('Error al crear usuario:', error.message);
-            throw error;
-        }
+      if (error.response && error.response.status === 409) {
+        return { message: 'User already exists' };
+      } else {
+        console.error('Error creating user:', error.message);
+        throw error;
+      }
     }
   }
 
@@ -194,10 +229,115 @@ export class UsersService {
       });
       return response.data.length > 0 ? response.data[0] : null;
     } catch (error) {
-      console.error(`Error al buscar usuario ${username}:`, error.message);
-      throw error;
+      if (error.response) {
+        if (error.response.status === 404) {
+          console.error(`User not found: ${username}`, error.response.data);
+          throw new NotFoundException(`User not found in Keycloak: ${username}`);
+        } else if (error.response.status === 401) {
+          console.error('Invalid token:', error.response.data);
+          throw new UnauthorizedException('Invalid token.');
+        }
+      }
+      console.error(`Error fetching user ${username}:`, error.response?.data || error.message);
+      throw new Error(`Failed to fetch user ${username} from Keycloak.`);
     }
   }
-  
+
+  public async getUserDetails(userId: string): Promise<any> {
+    try {
+      const accessToken = await this.authService.getAdminToken();
+      const response = await axios.get(`${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const user = response.data;
+      const rolesResponse = await axios.get(`${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const groupsResponse = await axios.get(`${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      return {
+        ...user,
+        roles: rolesResponse.data,
+        groups: groupsResponse.data,
+      };
+    } catch (error) {
+      if (error.response) {
+        if (error.response.status === 404) {
+          console.error('User not found:', error.response.data);
+          throw new NotFoundException('User not found in Keycloak.');
+        } else if (error.response.status === 401) {
+          console.error('Invalid token:', error.response.data);
+          throw new UnauthorizedException('Invalid token.');
+        }
+      }
+      console.error('Error fetching user details:', error.response?.data || error.message);
+      throw new Error('Failed to fetch user details from Keycloak.');
+    }
+  }
+
+  public async isUserEnabled(userId: string): Promise<boolean> {
+    try {
+      let accessToken = await this.authService.getAdminToken();
+      const response = await axios.get(`${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      return response.data.enabled;
+    } catch (error) {
+      if (error.response) {
+        if (error.response.status === 404) {
+          console.error('User not found:', error.response.data);
+          throw new NotFoundException('User not found in Keycloak.');
+        } else if (error.response.status === 401) {
+          console.error('Invalid token:', error.response.data);
+          throw new UnauthorizedException('Invalid token.');
+        }
+      }
+      console.error('Error fetching user enabled status:', error.response?.data || error.message);
+      throw new Error('Failed to fetch user enabled status from Keycloak.');
+    }
+  }
+
+  public async updateUserEnabled(userId: string, enabled: boolean): Promise<void> {
+    try {
+      let accessToken = await this.authService.getAdminToken();
+      await axios.put(
+        `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`,
+        { enabled },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+    } catch (error) {
+      if (error.response) {
+        if (error.response.status === 404) {
+          console.error('User not found:', error.response.data);
+          throw new NotFoundException('User not found in Keycloak.');
+        } else if (error.response.status === 401) {
+          console.error('Invalid token:', error.response.data);
+          throw new UnauthorizedException('Invalid token.');
+        }
+      }
+      console.error('Error updating user enabled status:', error.response?.data || error.message);
+      throw new Error('Failed to update user status in Keycloak.');
+    }
+  }
+
+
+
+
+
+
+
+
+
+
 }
 
